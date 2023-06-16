@@ -1,0 +1,181 @@
+---
+title: "Capstone Week 2"
+author: "Cathy M"
+date: "2023-06-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r package load , include = F}
+library(ggplot2)
+library(tidyverse)
+library(tidytext)
+library(ngram)
+library(tm)
+
+set.seed(1234)
+# 
+# Us_Blog=readLines('en_US.blogs.txt')
+# Us_News=readLines('en_US.news.txt')
+# Us_Twit=readLines('en_US.twitter.txt')
+# 
+# Us_Blog= as.data.frame(Us_Blog)
+# Us_News= as.data.frame(Us_News)
+# Us_Twit= as.data.frame(Us_Twit)
+# using the binomial function to separate the large data set
+
+# names(Us_Blog) = rbinom(n=101024,size = 1,prob=0.2)
+# Us_Blog_Sub = subset(Us_Blog, names(Us_Blog)==1)
+# write.csv(Us_Blog_Sub, 'Subset_Us_Blog.csv', row.names = F)
+# 
+# names(Us_News) = rbinom(n=101024,size = 1,prob=0.2)
+# Us_News_Sub = subset(Us_News, names(Us_News)==1)
+# write.csv(Us_News_Sub, 'Subset_Us_News.csv', row.names = F)
+# 
+# names(Us_Twit) = rbinom(n=101024,size = 1,prob=0.2)
+# Us_Twit_Sub = subset(Us_Twit, names(Us_Twit)==1)
+# write.csv(Us_Twit_Sub, 'Subset_Us_Twit.csv', row.names = F )
+
+#Loading the subset in
+
+Us_Blog_Sub=as.data.frame(read.csv('Subset_Us_Blog.csv'))
+Us_News_Sub=as.data.frame(read.csv('Subset_Us_News.csv'))
+Us_Twit_Sub=as.data.frame(read.csv('Subset_Us_Twit.csv'))
+
+```
+
+## Creating histograms of the word count in a string for each source
+
+To ensure the script runs quickly I have taken a random subset from each data set. From the histograms below it is clear that the twitter source has strings with a shorter word count, this is likley due to the limit of characters in each tweet. Both the news source and the blog source contain strings with a much higher word count, the news article tends to have a slightly lower word count than the blog post. This again relates to the source, news articles are written to be short and quick to read whereas a blog post tends to be written in more detail and therefore would have a slightly higher number of words per string.
+
+``` {r Word Count}
+
+#### Data analysis  ####
+
+## Creating a histogram for word count in string 
+#Blog
+Us_Blog_Sub$Words <- sapply(Us_Blog_Sub$x, function(y){y%>%str_count(pattern = '[\\s]',.)+1})
+ggplot(data = Us_Blog_Sub,  aes(x=Words))+
+  geom_histogram()+
+  xlim(0,500)+
+  ylab('Number of Strings')+
+  ggplot2::ggtitle('Blog Posts')
+
+#News
+Us_News_Sub$Words <- sapply(Us_News_Sub$x, function(y){y%>%str_count(pattern = '[\\s]',.)+1})
+ggplot(data = Us_News_Sub,  aes(x=Words))+
+  geom_histogram()+
+  ylab('Number of Strings')+
+  xlim(0,500)+
+  ggplot2::ggtitle('News')
+
+#Twitter
+Us_Twit_Sub$Words <- sapply(Us_Twit_Sub$x, function(y){y%>%str_count(pattern = '[\\s]',.)+1})
+ggplot(data = Us_Twit_Sub,  aes(x=Words))+
+  geom_histogram()+
+  ylab('Number of Strings')+
+  ggplot2::ggtitle('Twitter Posts')
+
+```
+
+## Looking at the frequency of unigrams and bigrams
+
+When looking at the bigrams without removing stop words each data set is returning similar results, when looking with stop words removed twitter and blog posts seem to be more likely to be written in first person using 'I'. This is likely due to the style of writing and expected audience, due to the similarities in the n grams of these two sources I propose to combine them to create a model that would work for either source. I will keep the predictions for news articles as a separate source as I believe the ngrams are different enough that combining the models would decrease the accuracy of predictions.
+```{r Bigrams and Unigrams}
+### Blog 
+Us_Blog_String = concatenate(Us_Blog_Sub$x)
+#remove punctuation and other non alpha-numeric characters
+Us_Blog_String=str_remove_all(string =  Us_Blog_String,pattern =  "[:punct:]") %>%
+  str_remove_all(pattern =  "[^([:alnum:]) ]") 
+# create n grams of 1 or 2 words
+Blog_ng_with_stopwords_2gram= ngram(Us_Blog_String,2) %>% get.phrasetable()
+Blog_ng_with_stopwords_1gram= ngram(Us_Blog_String,1) %>% get.phrasetable()
+
+ggplot(head(Blog_ng_with_stopwords_2gram,10))+
+  geom_col(aes(x = reorder(ngrams, -prop), y=prop))+
+  xlab('ngrams')+
+  ggtitle('ngrams blog posts with stopwords')
+
+
+#Remove stopwords and repeat
+Us_Blog_String_no_stopwords = removeWords(Us_Blog_String,words = stopwords('english'))
+
+Blog_ng_without_stopwords_2gram= ngram(Us_Blog_String_no_stopwords,2) %>% get.phrasetable()
+Blog_ng_without_stopwords_1gram= ngram(Us_Blog_String_no_stopwords,1) %>% get.phrasetable()
+
+ggplot(head(Blog_ng_without_stopwords_2gram,10))+
+  geom_col(aes(x = reorder(ngrams, -prop), y=prop))+
+  xlab('ngrams')+
+  ggtitle('ngrams blog posts without stopwords')
+
+### News 
+Us_News_String = concatenate(Us_News_Sub$x)
+#remove punctuation and other non alpha-numeric characters
+Us_News_String=str_remove_all(string =  Us_News_String,pattern =  "[:punct:]") %>%
+  str_remove_all(pattern =  "[^([:alnum:]) ]") 
+# create n grams of 1 or 2 words
+News_with_stopwords_2gram= ngram(Us_News_String,2) %>% get.phrasetable()
+News_with_stopwords_1gram= ngram(Us_News_String,1) %>% get.phrasetable()
+
+ggplot(head(News_with_stopwords_2gram,10))+
+  geom_col(aes(x = reorder(ngrams, -prop), y=prop))+
+  xlab('ngrams')+
+  ggtitle('ngrams news articles with stopwords')
+
+#Remove stopwords and repeat
+Us_News_String_no_stopwords = removeWords(Us_News_String,words = stopwords('english'))
+News_without_stopwords_2gram= ngram(Us_News_String_no_stopwords,2) %>% get.phrasetable()
+News_without_stopwords_1gram= ngram(Us_News_String_no_stopwords,1) %>% get.phrasetable()
+
+ggplot(head(News_without_stopwords_2gram,10))+
+  geom_col(aes(x = reorder(ngrams, -prop), y=prop))+
+  xlab('ngrams')+
+  ggtitle('ngrams news articles without stopwords')
+
+
+### Twitter 
+Us_Twitter_String = concatenate(Us_Twit_Sub$x)
+#remove punctuation and other non alpha-numeric characters
+Us_Twitter_String=str_remove_all(string =  Us_Twitter_String,pattern =  "[:punct:]") %>%
+  str_remove_all(pattern =  "[^([:alnum:]) ]") 
+# create n grams of 1 or 2 words
+Twit_with_stopwords_2gram= ngram(Us_Twitter_String,2) %>% get.phrasetable()
+Twit_with_stopwords_1gram= ngram(Us_Twitter_String,1) %>% get.phrasetable()
+
+
+ggplot(head(Twit_with_stopwords_2gram,10))+
+  geom_col(aes(x = reorder(ngrams, -prop), y=prop))+
+  xlab('ngrams')+
+  ggtitle('ngrams twitter posts with stopwords')
+
+#Remove stopwords and repeat
+Us_Twit_String_no_stopwords = removeWords(Us_Twitter_String,words = stopwords('english'))
+
+Twit_ng_without_stopwords_2gram= ngram(Us_Twit_String_no_stopwords,2) %>% get.phrasetable()
+Twit_ng_without_stopwords_1gram= ngram(Us_Twit_String_no_stopwords,1) %>% get.phrasetable()
+
+ggplot(head(Twit_ng_without_stopwords_2gram,10))+
+  geom_col(aes(x = reorder(ngrams, -prop), y=prop))+
+  xlab('ngrams')+
+  ggtitle('ngrams twitter posts without stopwords')
+
+ggplot(head(Blog_ng_with_stopwords_1gram,10))+
+  geom_col(aes(x = reorder(ngrams, -prop), y=prop))+
+  xlab('ngrams')+
+  ggtitle('ngrams blog posts without stopwords')
+
+ggplot(head(News_without_stopwords_1gram,10))+
+  geom_col(aes(x = reorder(ngrams, -prop), y=prop))+
+  xlab('ngrams')+
+  ggtitle('ngrams News articles without stopwords')
+
+ggplot(head(Twit_ng_without_stopwords_1gram,10))+
+  geom_col(aes(x = reorder(ngrams, -prop), y=prop))+
+  xlab('ngrams')+
+  ggtitle('ngrams twitter posts without stopwords')
+```
+
+
